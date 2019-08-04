@@ -10,6 +10,7 @@ import (
 	"github.com/containous/traefik/log"
 	"github.com/containous/traefik/safe"
 	"github.com/containous/traefik/types"
+	traefiktls "github.com/containous/traefik/tls"
 	"github.com/unrolled/render"
 )
 
@@ -24,6 +25,13 @@ var templatesRenderer = render.New(render.Options{Directory: "nowhere"})
 // Init the provider
 func (p *Provider) Init(_ types.Constraints) error {
 	return nil
+}
+
+// Configuration of a provider.
+type configurationWithTLS struct {
+	Backends  map[string]*types.Backend   `json:"backends,omitempty"`
+	Frontends map[string]*types.Frontend  `json:"frontends,omitempty"`
+	TLS       []*traefiktls.Configuration `json:"tls,omitempty"`
 }
 
 // AddRoutes add rest provider routes on a router
@@ -44,9 +52,13 @@ func (p *Provider) AddRoutes(systemRouter *mux.Router) {
 			}
 
 			configuration := new(types.Configuration)
+			configurationTmp := new(configurationWithTLS)
 			body, _ := ioutil.ReadAll(request.Body)
-			err := json.Unmarshal(body, configuration)
+			err := json.Unmarshal(body, configurationTmp)
 			if err == nil {
+				configuration.Backends = configurationTmp.Backends
+				configuration.Frontends = configurationTmp.Frontends
+				configuration.TLS = configurationTmp.TLS
 				// TODO: Deprecated configuration - Change to `rest` in the future
 				p.configurationChan <- types.ConfigMessage{ProviderName: "web", Configuration: configuration}
 				err := templatesRenderer.JSON(response, http.StatusOK, configuration)
